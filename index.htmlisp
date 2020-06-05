@@ -1,0 +1,111 @@
+(mapcar #'ql:quickload '(:markup :hunchentoot :parenscript :postmodern))
+(defpackage retro-games
+  (:use :cl :markup :hunchentoot :parenscript :postmodern))
+(in-package retro-games)
+(markup:enable-reader)
+
+(defclass game ()
+  ((name  :reader name
+          :initarg :name)
+   (votes :accessor votes
+          :initform 0)))
+
+(defmethod vote-for (user-selected-game)
+  "Increment the votes for USER-SELECTED-GAME."
+  (incf (votes user-selected-game)))
+
+(defvar *games* '()
+  "List of games to vote for.")
+
+(defvar *voted-ips* '()
+  "List of sessions-ips that have already voted.")
+
+(defun game-from-name (name)
+  "Returns game with NAME from *games* or nil."
+  (find name *games* :test #'string-equal
+                     :key #'name))
+
+(defun game-stored? (game-name)
+  "True if there is a game with GAME-NAME."
+  (game-from-name game-name))
+
+(defun games ()
+  (sort (copy-list *games*) #'> :key #'votes))
+
+(defun add-game (name)
+  (unless (game-stored? name)
+    (push (make-instance 'game :name name) *games*)))
+
+(deftag standard-page (children &key title)
+  <html>
+    <head>
+      <title>,(progn title)</title>
+      <link type="text/css" rel="stylesheet" href="/retro.css">
+    </head>
+    <body>
+      <header>
+        <span class="strapline">Vote on your favorite Retro Game</span>
+      </header>
+      <div id="content">
+        ,@(progn children)
+      </div>
+      <hr>
+      <footer>
+        <img id="made-with-lisp" src="/made-with-lisp.png">
+      </footer>
+    </body>
+  </html>)
+
+;; root
+(define-easy-handler (retro-games :uri "/" ) ()
+  (start-session)
+  (format t "~A~%" (session-user-agent *session*))
+  (write-html
+   <standard-page title="Retro Games">
+     <h1>Top Retro Games</h1>
+     <p>Missing a game? Make it available for votes <a href="/new-game">here</a>.</p>
+     <ol id="chart">
+       ,@(mapcar
+          (lambda (game)
+            <li>
+              <a href=(format nil "/vote?name=~a" (url-encode (name game)))>Vote!</a>
+              ,(format nil "~A with ~d votes" (name game) (votes game))
+            </li>)
+          (games))
+     </ol>
+   </standard-page>))
+
+(define-easy-handler (vote :uri "/vote") (name)
+  (let ((game (game-from-name name))
+        (ip (remote-addr*)))
+    (unless (member ip *voted-ips* :test 'string=)
+      (push ip *voted-ips*)
+      (when game
+        (vote-for game))))
+  (redirect "/"))
+
+(define-easy-handler (new-game :uri "/new-game") ()
+  (write-html
+   <standard-page title="New Game">
+     <h1>Add New Game to the Chart</h1>
+     <form action="/game-added" method="post"
+           onsubmit=(ps-inline
+                        (when (= ((@ name value trim)) "")
+                          (setf (inner-html (get-element-by-id "error")) "Please enter a name")
+                          (return false))) >
+       <label for="game-name">What is the name of the game?</label>
+       <input id="game-name" name="name" class="txt" autofocus
+              oninput=(ps-inline
+                          (setf (inner-html (get-element-by-id "error")) "")) >
+         <span id="error" style="color:red"></span>
+         <input type="submit" value="Add" class="btn">
+     </form>
+   </standard-page>))
+
+(define-easy-handler (game-added :uri "/game-added") (name)
+  (let ((name (str:trim name)))
+    (unless (or (null name) (zerop (length name)))
+      (add-game name)))
+  (redirect "/"))
+
+(start (make-instance 'easy-acceptor :port 8080 :document-root "./"))
