@@ -3,41 +3,59 @@
   (:use :cl :markup :hunchentoot :parenscript :postmodern))
 (in-package retro-games)
 (markup:enable-reader)
+;; enter value of 'password in the debugger
+(connect-toplevel "retro_games" "retro" 'password "localhost")
 
 (defclass game ()
-  ((name  :reader name
-          :initarg :name)
-   (votes :accessor votes
-          :initform 0)))
-
-(defmethod vote-for (user-selected-game)
+  ((name :col-type string
+         :reader namep
+         :initarg :name)
+   (votes :col-type integer
+          :accessor votes
+          :initform 0))
+  (:metaclass dao-class)
+  (:keys name))
+(defmethod vote-for ((user-selected-game game))
   "Increment the votes for USER-SELECTED-GAME."
-  (incf (votes user-selected-game)))
-
-(defvar *games* '()
-  "List of games to vote for.")
+  (incf (votes user-selected-game))
+  (update-dao user-selected-game))
+(defmethod unvote-for ((previous-game game))
+  "decrement the votes for previous-game."
+  (decf (votes previous-game))
+  (update-dao previous-game))
+(defmethod obj-equal ((a game) (b game))
+  (string= (name a) (name b)))
 (defmethod print-object ((obj game) out)
   (print-unreadable-object (obj out)
     (format out "GAME: ~S ~a" (name obj) (votes obj))))
+;; continue if the table already exists
+(execute (dao-table-definition 'game))
 
 (defconstant retro-games "retro-games"
   "The name of the cookies from retro-games.")
 
 (defun game-from-name (name)
-  (find name *games* :test #'string-equal
-                     :key #'name))
   "Return game with NAME or nil is the game doesn't exist."
+  (get-dao 'game name))
 
 (defun game-stored-p (game-name)
   "true if there is a game with game-name."
   (game-from-name game-name))
 
 (defun games ()
-  (sort (copy-list *games*) #'> :key #'votes))
+  "Return the list of games sorted by vote."
+  (reverse (select-dao 'game t 'votes)))
 
 (defun add-game (name)
-  (unless (game-stored? name)
-    (push (make-instance 'game :name name) *games*)))
+  "Add a game with NAME and zero votes."
+  (unless (game-stored-p name)
+    (insert-dao (make-instance 'game :name name))))
+
+(defun remove-game (name)
+  "Remove the game with NAME."
+  (let ((game (game-from-name name)))
+    (when game
+      (delete-dao game))))
 
 (deftag standard-page (children &key title)
   <html>
