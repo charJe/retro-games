@@ -17,8 +17,8 @@
 (defvar *games* '()
   "List of games to vote for.")
 
-(defvar *voted-ips* '()
-  "List of sessions-ips that have already voted.")
+(defconstant retro-games "retro-games"
+  "The name of the cookies from retro-games.")
 
 (defun game-from-name (name)
   "Returns game with NAME from *games* or nil."
@@ -59,29 +59,39 @@
 ;; root
 (define-easy-handler (retro-games :uri "/" ) ()
   (start-session)
-  (format t "~A~%" (session-user-agent *session*))
-  (write-html
-   <standard-page title="Retro Games">
-     <h1>Top Retro Games</h1>
-     <p>Missing a game? Make it available for votes <a href="/new-game">here</a>.</p>
-     <ol id="chart">
-       ,@(mapcar
-          (lambda (game)
-            <li>
-              <a href=(format nil "/vote?name=~a" (url-encode (name game)))>Vote!</a>
-              ,(format nil "~A with ~d votes" (name game) (votes game))
-            </li>)
-          (games))
-     </ol>
-   </standard-page>))
+  (let ((value (cookie-in retro-games)))
+    (when (and value (not (game-stored-p value)))
+      (set-cookie retro-games :value ""))
+    (write-html
+     <standard-page title="Retro Games">
+       <h1>Top Retro Games</h1>
+       <p>Is your favorite game not here? Make it available for votes <a href="/new-game">here</a>.</p>
+       ,(when (and value (game-stored-p value))
+          <p style="color:gray;">
+            You already voted for ,(progn value). If you vote again, your vote will be transfered.
+          </p>)
+       <ol id="chart">
+         ,@(mapcar
+            (lambda (game)
+              <li>
+                <a href=(format nil "/vote?name=~a" (url-encode (name game)))>Vote!</a>
+                ,(format nil "~a with ~d votes" (name game) (votes game))
+              </li>)
+            (games))
+       </ol>
+     </standard-page>)))
 
 (define-easy-handler (vote :uri "/vote") (name)
-  (let ((game (game-from-name name))
-        (ip (remote-addr*)))
-    (unless (member ip *voted-ips* :test 'string=)
-      (push ip *voted-ips*)
-      (when game
-        (vote-for game))))
+  (when name
+    (let* ((game (game-from-name name))
+           (value (cookie-in retro-games))
+           (prev-game (when value (game-from-name value))))
+      (when (or (null prev-game)
+                (not (obj-equal game prev-game)))
+        (when prev-game
+          (unvote-for prev-game))
+        (vote-for game)
+        (set-cookie retro-games :value name))))
   (redirect "/"))
 
 (define-easy-handler (new-game :uri "/new-game") ()
