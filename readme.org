@@ -1,0 +1,13 @@
+#+title: Retro-games
+#+date: 
+#+options: \n:t toc:nil num:nil tex:t latex:t
+For the most part I just followed I just followed the [[https://adamtornhill.com/articles/lispweb.htm][Lisp for the Web]] tutorial. Here are the differences: 
+
+|                | Me            | Adam          |
+|----------------+---------------+---------------|
+| html generator | [[https://github.com/moderninterpreters/markup][Markup]]        | [[https://edicl.github.io/cl-who/][CL-WHO]]        |
+| database       | [[Https://www.postgresql.org/][Postgres]]      | [[https://www.oracle.com/database/technologies/related/berkeleydb-downloads.html][Berkeley DB]]   |
+| DB interface   | [[https://marijnhaverbeke.nl/postmodern/][Postmodern]]    | [[https://common-lisp.net/project/elephant/][Elephant]]      |
+| [[https://edicl.github.io/hunchentoot/][Hunchentoot]]    | newer version | older version |
+
+I used cookies to prevent multiple voting and enable vote transfers.
