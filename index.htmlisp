@@ -16,17 +16,20 @@
 
 (defvar *games* '()
   "List of games to vote for.")
+(defmethod print-object ((obj game) out)
+  (print-unreadable-object (obj out)
+    (format out "GAME: ~S ~a" (name obj) (votes obj))))
 
 (defconstant retro-games "retro-games"
   "The name of the cookies from retro-games.")
 
 (defun game-from-name (name)
-  "Returns game with NAME from *games* or nil."
   (find name *games* :test #'string-equal
                      :key #'name))
+  "Return game with NAME or nil is the game doesn't exist."
 
-(defun game-stored? (game-name)
-  "True if there is a game with GAME-NAME."
+(defun game-stored-p (game-name)
+  "true if there is a game with game-name."
   (game-from-name game-name))
 
 (defun games ()
@@ -44,14 +47,14 @@
     </head>
     <body>
       <header>
-        <span class="strapline">Vote on your favorite Retro Game</span>
+        <span class="strapline">Vote on your favorite retro game</span>
       </header>
       <div id="content">
         ,@(progn children)
       </div>
       <hr>
       <footer>
-        <img id="made-with-lisp" src="/made-with-lisp.png">
+        <img id="made-with-lisp" src="/made-with-lisp.png" />
       </footer>
     </body>
   </html>)
@@ -103,12 +106,13 @@
                         (when (= ((@ name value trim)) "")
                           (setf (inner-html (get-element-by-id "error")) "Please enter a name")
                           (return false))) >
+       <p style="color:gray;">Only enter games that are really <em>retro</em> games.</p>
        <label for="game-name">What is the name of the game?</label>
        <input id="game-name" name="name" class="txt" autofocus
               oninput=(ps-inline
-                          (setf (inner-html (get-element-by-id "error")) "")) >
-         <span id="error" style="color:red"></span>
-         <input type="submit" value="Add" class="btn">
+                          (setf (inner-html (get-element-by-id "error")) "")) /> 
+       <span id="error" style="color:red;"></span>
+       <input type="submit" value="Add" class="btn" />
      </form>
    </standard-page>))
 
@@ -118,4 +122,5 @@
       (add-game name)))
   (redirect "/"))
 
-(start (make-instance 'easy-acceptor :port 8080 :document-root "./"))
+(defvar server (start (make-instance 'easy-acceptor :port 8080 :document-root "./")))
+
